@@ -2,6 +2,7 @@ import { AreaField } from './AreaField'
 import { LocationField } from './LocationField'
 import { RoomSelect } from './RoomSelect'
 import { roomOptions, usePriceEstimator } from '../hooks/usePriceEstimator'
+import { formatPrice } from '../utils/formatPrice'
 
 export function PriceEstimator() {
   const {
@@ -68,7 +69,7 @@ export function PriceEstimator() {
         {estimateError && <p className="result error">{estimateError}</p>}
 
         {estimatedPrice !== null && (
-          <p className="result">Estimated price: {estimatedPrice} lakh</p>
+          <p className="result">Estimated price: {formatPrice(estimatedPrice)}</p>
         )}
       </form>
     </section>
