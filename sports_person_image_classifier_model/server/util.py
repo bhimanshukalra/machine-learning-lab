@@ -35,17 +35,22 @@ def classify_image(image_base64_data, file_path=None):
         len_image_array = 32 * 32 * 3 + 32 * 32
 
         final = combined_img.reshape(1, len_image_array).astype(float)
+        class_probability = np.around(__model.predict_proba(final) * 100, 2).tolist()[0]
         result.append(
             {
                 "class": class_number_to_name(__model.predict(final)[0]),
-                "class_probability": np.around(
-                    __model.predict_proba(final) * 100, 2
-                ).tolist()[0],
-                "class_dictionary": __class_name_to_number,
+                "class_probability": get_named_class_probabilities(class_probability),
             }
         )
 
     return result
+
+
+def get_named_class_probabilities(class_probability):
+    return {
+        class_name: class_probability[class_number]
+        for class_name, class_number in __class_name_to_number.items()
+    }
 
 
 def class_number_to_name(class_num):
@@ -111,10 +116,5 @@ def get_b64_test_image_for_virat():
 
 if __name__ == "__main__":
     load_saved_artifacts()
-    print(classify_image(get_b64_test_image_for_virat()))
-    print(classify_image(None, str(TEST_IMAGES_DIR / "roger_federer2.png")))
-    print(classify_image(None, str(TEST_IMAGES_DIR / "roger_federer4.png")))
-    print(classify_image(None, str(TEST_IMAGES_DIR / "serena_williams4.png")))
-    print(classify_image(None, str(TEST_IMAGES_DIR / "serena_williams6.png")))
-    print(classify_image(None, str(TEST_IMAGES_DIR / "virat_kohli1.png")))
-    print(classify_image(None, str(TEST_IMAGES_DIR / "virat_kohli3.png")))
+    # print(classify_image(get_b64_test_image_for_virat()))
+    # print(classify_image(None, str(TEST_IMAGES_DIR / "roger_federer2.png")))
