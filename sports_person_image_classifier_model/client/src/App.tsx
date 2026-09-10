@@ -1,121 +1,153 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
+import { useMemo, useState } from 'react'
+import type { ChangeEvent, FormEvent } from 'react'
 import './App.css'
 
+type Classification = {
+  class: string
+  class_probability: Record<string, number>
+}
+
 function App() {
-  const [count, setCount] = useState(0)
+  const [imageData, setImageData] = useState('')
+  const [imageName, setImageName] = useState('')
+  const [results, setResults] = useState<Classification[]>([])
+  const [error, setError] = useState('')
+  const [isClassifying, setIsClassifying] = useState(false)
+
+  const topResult = results[0]
+  const probabilities = useMemo(() => {
+    if (!topResult) {
+      return []
+    }
+
+    return Object.entries(topResult.class_probability).sort(
+      ([, firstProbability], [, secondProbability]) =>
+        secondProbability - firstProbability,
+    )
+  }, [topResult])
+
+  const handleImageChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+
+    setResults([])
+    setError('')
+
+    if (!file) {
+      setImageData('')
+      setImageName('')
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = () => {
+      setImageData(String(reader.result))
+      setImageName(file.name)
+    }
+    reader.onerror = () => {
+      setImageData('')
+      setImageName('')
+      setError('Unable to read the selected image.')
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const classifyImage = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setError('')
+    setResults([])
+
+    if (!imageData) {
+      setError('Choose an image before classifying.')
+      return
+    }
+
+    const formData = new FormData()
+    formData.append('image_data', imageData)
+
+    try {
+      setIsClassifying(true)
+      const response = await fetch('/api/classify_image', {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (!response.ok) {
+        throw new Error('Unable to classify the image.')
+      }
+
+      const data = (await response.json()) as Classification[]
+
+      if (data.length === 0) {
+        setError('No clear face with two eyes was found in this image.')
+        return
+      }
+
+      setResults(data)
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : 'Unable to classify the image.',
+      )
+    } finally {
+      setIsClassifying(false)
+    }
+  }
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
+    <main className="app">
+      <section className="classifier">
+        <div className="heading">
+          <p className="eyebrow">Sports person classifier</p>
+          <h1>Upload an Image</h1>
         </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
+
+        <form className="upload-form" onSubmit={classifyImage}>
+          <label className="upload-control" htmlFor="image">
+            <span>{imageName || 'Choose image'}</span>
+            <input
+              id="image"
+              accept="image/*"
+              type="file"
+              onChange={handleImageChange}
+            />
+          </label>
+
+          {imageData && (
+            <img className="preview" src={imageData} alt="Selected upload" />
+          )}
+
+          <button type="submit" disabled={!imageData || isClassifying}>
+            {isClassifying ? 'Classifying...' : 'Classify Image'}
+          </button>
+        </form>
+
+        {error && <p className="message error">{error}</p>}
+
+        {topResult && (
+          <section className="result">
+            <p className="prediction">Prediction: {topResult.class}</p>
+
+            <div className="probabilities">
+              {probabilities.map(([className, probability]) => (
+                <div className="probability" key={className}>
+                  <div className="probability-label">
+                    <span>{className}</span>
+                    <strong>{probability}%</strong>
+                  </div>
+                  <div className="probability-track">
+                    <div
+                      className="probability-fill"
+                      style={{ width: `${probability}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
       </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+    </main>
   )
 }
 
